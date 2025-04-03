@@ -12,7 +12,9 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "test:math": "node scripts/test_math.js",
-    "test:algebra": "node scripts/test_algebra.js"
+    "test:algebra": "node scripts/test_algebra.js",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "keywords": [
     "llm",

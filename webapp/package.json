@@ -11,7 +11,9 @@
     "dev": "concurrently \"npm run start:server\" \"npm run start:client\"",
     "install:client": "cd client && npm install",
     "install:server": "cd server && npm install",
-    "setup": "npm install && npm run install:client && npm run install:server"
+    "setup": "npm install && npm run install:client && npm run install:server",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "keywords": [
     "react",
