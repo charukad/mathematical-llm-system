@@ -38,31 +38,56 @@ class AlgebraEquationSolver {
 
       const variable = parsed.variables[0];
 
-      // Move all terms to the left side
-      const solveExpr = `solve(${leftSide} - (${rightSide}), ${variable})`;
+      // Directly solve the linear equation by moving all terms
+      // This is a simple implementation for ax + b = c format equations
+      try {
+        // Get the coefficient of the variable and the constant term
+        // For equations like ax + b = c
+        const scope = {};
+        scope[variable] = 1; // Set variable to 1 to find coefficient
+        const withVar = math.evaluate(leftSide, scope);
+        scope[variable] = 0; // Set variable to 0 to find constant
+        const withoutVar = math.evaluate(leftSide, scope);
 
-      // Solve using mathjs
-      const solutions = math.evaluate(solveExpr);
+        const coefficient = withVar - withoutVar; // This gives us 'a'
+        const constantLeft = withoutVar; // This gives us 'b'
+        const constantRight = math.evaluate(rightSide); // This gives us 'c'
 
-      // Generate solution steps
-      const steps = this.generateLinearSolutionSteps(
-        leftSide,
-        rightSide,
-        variable,
-        solutions
-      );
+        // Solve for x: ax + b = c => x = (c - b) / a
+        const solution = (constantRight - constantLeft) / coefficient;
 
-      return {
-        solved: true,
-        equation: equationString,
-        variable,
-        solutions,
-        steps,
-        latex: {
-          equation: parsed.latex,
-          solution: `${variable} = ${math.parse(solutions.toString()).toTex()}`,
-        },
-      };
+        // Generate solution steps
+        const steps = this.generateLinearSolutionSteps(
+          leftSide,
+          rightSide,
+          variable,
+          coefficient,
+          constantLeft,
+          constantRight,
+          solution
+        );
+
+        return {
+          solved: true,
+          equation: equationString,
+          variable,
+          solutions: solution,
+          steps,
+          latex: {
+            equation: parsed.latex,
+            solution: `${variable} = ${math.format(solution, {
+              precision: 14,
+            })}`,
+          },
+        };
+      } catch (error) {
+        console.error("Error during direct solving:", error);
+        return {
+          solved: false,
+          error: "Failed to solve equation directly",
+          details: error.message,
+        };
+      }
     } catch (error) {
       console.error("Error solving linear equation:", error);
       return {
@@ -73,19 +98,35 @@ class AlgebraEquationSolver {
     }
   }
 
-  generateLinearSolutionSteps(leftSide, rightSide, variable, solution) {
+  generateLinearSolutionSteps(
+    leftSide,
+    rightSide,
+    variable,
+    coefficient,
+    constantLeft,
+    constantRight,
+    solution
+  ) {
     return [
       {
         explanation: `Start with the original equation`,
         expression: `${leftSide} = ${rightSide}`,
       },
       {
-        explanation: `Move all terms with ${variable} to the left side and all other terms to the right side`,
-        expression: `...`, // This will be expanded in a future implementation
+        explanation: `Move all terms with ${variable} to the left side and all constants to the right side`,
+        expression: `${coefficient}${variable} = ${rightSide} - ${constantLeft}`,
       },
       {
-        explanation: `Solve for ${variable}`,
-        expression: `${variable} = ${solution}`,
+        explanation: `Simplify the right side`,
+        expression: `${coefficient}${variable} = ${
+          constantRight - constantLeft
+        }`,
+      },
+      {
+        explanation: `Divide both sides by the coefficient of ${variable}`,
+        expression: `${variable} = ${
+          (constantRight - constantLeft) / coefficient
+        }`,
       },
     ];
   }
