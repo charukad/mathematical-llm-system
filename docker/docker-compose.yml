@@ -1,0 +1,38 @@
+version: "3"
+
+services:
+  model:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.model
+    ports:
+      - "3001:3001"
+    volumes:
+      - ../model:/app
+      - /app/node_modules
+    env_file:
+      - ../model/.env
+
+  webapp:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.webapp
+    ports:
+      - "5000:5000"
+    volumes:
+      - ../webapp:/app
+      - /app/node_modules
+    env_file:
+      - ../webapp/server/.env
+    depends_on:
+      - model
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+volumes:
+  mongodb_data:
