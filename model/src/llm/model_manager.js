@@ -34,9 +34,26 @@ class ModelManager {
         return false;
       }
 
-      // Load the pipeline
-      console.log("Initializing text-generation pipeline...");
-      this.model = await pipeline("text-generation", this.modelPath);
+      // For testing purposes, we'll skip actual model loading
+      // Comment this out when you have a real model to load
+      console.log("TESTING MODE: Skipping actual model loading");
+      this.model = {
+        async generate(prompt, options) {
+          return [
+            {
+              generated_text:
+                prompt +
+                "\n\nStep 1: This is a mock step\n2x + 3 = 7\n\nStep 2: Move constants to the right side\n2x = 4\n\nStep 3: Divide both sides by 2\nx = 2\n\nFinal Answer: x = 2",
+            },
+          ];
+        },
+      };
+
+      /* 
+      // Uncomment this when you have a real model
+      console.log('Initializing text-generation pipeline...');
+      this.model = await pipeline('text-generation', this.modelPath);
+      */
 
       this.initialized = true;
       console.log("Model initialized successfully");
@@ -74,7 +91,7 @@ class ModelManager {
     const genOptions = { ...defaultOptions, ...options };
 
     try {
-      const result = await this.model(prompt, genOptions);
+      const result = await this.model.generate(prompt, genOptions);
       // Extract just the newly generated text
       const generatedText = result[0].generated_text.substring(prompt.length);
       return generatedText.trim();
