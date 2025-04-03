@@ -8,6 +8,6 @@ RUN npm install
 
 COPY ../webapp .
 
-EXPOSE 5000
+EXPOSE 5012
 
 CMD ["npm", "start"]
