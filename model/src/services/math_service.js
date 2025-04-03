@@ -38,6 +38,16 @@ class MathService {
           mainExpression.expressionString,
           options
         );
+      } else if (
+        domain === "algebra" &&
+        mainExpression.type === "word_problem"
+      ) {
+        // For word problems, use LLM with contextual information
+        solution = await this.solveWithLLM(problemText, {
+          ...options,
+          problemType: "word_problem",
+          domain: "algebra",
+        });
       } else {
         // For other types, use LLM with parsed expression context
         solution = await this.solveWithLLM(problemText, {
@@ -68,18 +78,50 @@ class MathService {
    * @returns {Array} Array of parsed expressions
    */
   extractExpressions(text) {
-    // Simple regex to find potential expressions
-    // This will be enhanced in future iterations
-    const expressionRegex =
-      /\$([^$]+)\$|`([^`]+)`|([a-zA-Z0-9+\-*/^(){}[\]=><.,\s]+)/g;
-    const matches = [...text.matchAll(expressionRegex)];
+    // Better regex to find potential equations and expressions
+    const equationRegex =
+      /\$([^$]+)\$|`([^`]+)`|(\b[a-z][a-z0-9]*\s*[\+\-\*\/]\s*\d+\s*\=\s*\d+\b)|((?:\d+)?[a-z](?:\s*[\+\-\*\/]\s*(?:\d+)?[a-z])*\s*(?:[\+\-\*\/]\s*\d+)?\s*\=\s*\d+)/gi;
+    const matches = [...text.matchAll(equationRegex)];
 
     const expressions = [];
     for (const match of matches) {
-      const expressionText = match[1] || match[2] || match[3];
+      const expressionText = match[1] || match[2] || match[3] || match[4];
       if (expressionText && expressionText.trim()) {
         try {
           const parsed = parser.parseExpression(expressionText.trim());
+          if (parsed.parsed) {
+            expressions.push(parsed);
+          }
+        } catch (e) {
+          // Not a valid expression, skip
+        }
+      }
+    }
+
+    // If no expressions found with the equation regex, try a more general approach
+    if (expressions.length === 0) {
+      // Extract word problems by looking for key phrases
+      const wordProblemKeywords =
+        /what is [a-z]|solve for [a-z]|find the value of [a-z]/i;
+      if (wordProblemKeywords.test(text)) {
+        // This is likely a word problem, try to extract the entire text
+        return [
+          {
+            parsed: true,
+            expressionString: text,
+            type: "word_problem",
+          },
+        ];
+      }
+
+      // Try to find any mathematical expressions
+      const expressionRegex =
+        /\b\d+\s*[\+\-\*\/]\s*\d+\b|\b[a-z]\s*[\+\-\*\/]\s*\d+\b/gi;
+      const exprMatches = [...text.matchAll(expressionRegex)];
+
+      for (const match of exprMatches) {
+        try {
+          const parsed = parser.parseExpression(match[0].trim());
           if (parsed.parsed) {
             expressions.push(parsed);
           }
@@ -106,7 +148,8 @@ class MathService {
     if (
       lowerText.includes("derivative") ||
       lowerText.includes("integral") ||
-      lowerText.includes("differentiate")
+      lowerText.includes("differentiate") ||
+      lowerText.includes("rate of change")
     ) {
       return "calculus";
     }
@@ -114,7 +157,8 @@ class MathService {
     if (
       lowerText.includes("matrix") ||
       lowerText.includes("vector") ||
-      lowerText.includes("eigenvalue")
+      lowerText.includes("eigenvalue") ||
+      lowerText.includes("linear system")
     ) {
       return "linearAlgebra";
     }
@@ -122,9 +166,18 @@ class MathService {
     if (
       lowerText.includes("probability") ||
       lowerText.includes("statistics") ||
-      lowerText.includes("distribution")
+      lowerText.includes("distribution") ||
+      lowerText.includes("average") ||
+      lowerText.includes("standard deviation")
     ) {
       return "statistics";
+    }
+
+    // Check expression type if available
+    if (expression && expression.type) {
+      if (expression.type === "derivative" || expression.type === "integral") {
+        return "calculus";
+      }
     }
 
     // Default to algebra
@@ -141,6 +194,14 @@ class MathService {
   async solveAlgebraicEquation(equation, options = {}) {
     // First try to solve using the algebra solver
     const solution = algebraEquations.solveLinearEquation(equation);
+
+    // If direct solving failed, fall back to LLM
+    if (!solution.solved) {
+      return this.solveWithLLM(equation, {
+        ...options,
+        detailLevel: "detailed",
+      });
+    }
 
     // If we have a valid solution but want enhanced explanations, use the LLM
     if (solution.solved && options.enhanceExplanation) {
@@ -167,6 +228,7 @@ class MathService {
     const prompt = algebraPrompts.buildSolveEquationPrompt(equation, {
       ...options,
       detailLevel: options.detailLevel || "detailed",
+      baseSteps: solution.steps,
     });
 
     const llmResponse = await modelManager.generateText(prompt, {
@@ -175,22 +237,9 @@ class MathService {
     });
 
     // Parse the LLM response to extract steps
-    // This is a simplified version that will be improved
-    const steps = llmResponse
-      .split("Step")
-      .slice(1) // Skip text before first step
-      .map((step) => {
-        const [numberAndDesc, ...rest] = step.split("\n");
-        const description = numberAndDesc.split(":").slice(1).join(":").trim();
-        const expression = rest.join("\n").trim();
+    const steps = this.parseStepsFromLLMResponse(llmResponse);
 
-        return {
-          explanation: description,
-          expression,
-        };
-      });
-
-    return steps;
+    return steps.length > 0 ? steps : solution.steps;
   }
 
   /**
@@ -213,23 +262,10 @@ class MathService {
     });
 
     // Parse the LLM response to extract solution
-    // This is a simplified version that will be improved
-    const steps = llmResponse
-      .split("Step")
-      .slice(1)
-      .map((step) => {
-        const [numberAndDesc, ...rest] = step.split("\n");
-        const description = numberAndDesc.split(":").slice(1).join(":").trim();
-        const expression = rest.join("\n").trim();
-
-        return {
-          explanation: description,
-          expression,
-        };
-      });
+    const steps = this.parseStepsFromLLMResponse(llmResponse);
 
     // Extract final answer
-    const finalAnswerMatch = llmResponse.match(/Final Answer:(.+)/);
+    const finalAnswerMatch = llmResponse.match(/Final Answer:(.+?)(?:\n|$)/s);
     const finalAnswer = finalAnswerMatch
       ? finalAnswerMatch[1].trim()
       : "No final answer provided";
@@ -240,6 +276,82 @@ class MathService {
       result: finalAnswer,
       llmGenerated: true,
     };
+  }
+
+  /**
+   * Parses step-by-step solution from LLM response
+   *
+   * @param {string} llmResponse - The raw LLM response text
+   * @returns {Array} Structured solution steps
+   */
+  parseStepsFromLLMResponse(llmResponse) {
+    // Split by step indicators
+    const stepMatches =
+      llmResponse.match(/Step \d+:[\s\S]*?(?=Step \d+:|Final Answer:|$)/g) ||
+      [];
+
+    if (stepMatches.length === 0) {
+      return [];
+    }
+
+    return stepMatches.map((stepText) => {
+      // Extract step number and description
+      const stepHeaderMatch = stepText.match(/Step (\d+):(.*?)(?:\n|$)/);
+
+      if (!stepHeaderMatch) {
+        return {
+          explanation: "Parsing error",
+          expression: stepText.trim(),
+        };
+      }
+
+      const [_, number, description] = stepHeaderMatch;
+      // The rest is the expression/explanation part
+      const expressionPart = stepText.slice(stepHeaderMatch[0].length).trim();
+
+      return {
+        step: parseInt(number),
+        explanation: description.trim(),
+        expression: expressionPart,
+      };
+    });
+  }
+
+  /**
+   * Creates visualization configurations for solutions
+   *
+   * @param {string} domain - The mathematical domain
+   * @param {Object} expression - The parsed expression
+   * @param {Object} solution - The solution object
+   * @returns {Object} Visualization configuration
+   */
+  generateVisualizationConfig(domain, expression, solution) {
+    // This is a placeholder for visualization generation
+    // We'll implement this more fully in a future step
+
+    if (domain === "algebra" && expression.type === "equation") {
+      return {
+        type: "equation",
+        data: {
+          equation: expression.expressionString,
+          solution: solution.result,
+        },
+      };
+    }
+
+    if (domain === "algebra" && expression.type === "function") {
+      return {
+        type: "function_plot",
+        data: {
+          function: expression.expressionString,
+          xRange: [-10, 10],
+          yRange: [-10, 10],
+        },
+      };
+    }
+
+    // Default empty visualization
+    return null;
   }
 }
 

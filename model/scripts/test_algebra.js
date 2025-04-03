@@ -13,16 +13,17 @@ const testProblems = [
 
 // Test each problem
 async function runTests() {
-  console.log("Testing algebra solver...\n");
+  console.log("Testing algebra solver with mock LLM...\n");
 
   for (const problem of testProblems) {
     console.log(`Problem: ${problem}`);
     try {
+      console.log("Solving...");
       const solution = await mathService.solveProblem(problem);
       console.log("Solution:");
       console.log(JSON.stringify(solution, null, 2));
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error solving problem:", error.message);
     }
     console.log("\n-------------------\n");
   }

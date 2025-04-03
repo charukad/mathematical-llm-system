@@ -1,16 +1,7 @@
 const parser = require("../parser");
 const math = require("mathjs");
 
-/**
- * Functions for solving algebraic equations
- */
 class AlgebraEquationSolver {
-  /**
-   * Solves a linear equation with one variable
-   *
-   * @param {string} equationString - The equation as a string (e.g., "2x + 3 = 7")
-   * @returns {Object} Solution information
-   */
   solveLinearEquation(equationString) {
     try {
       // Parse the equation
@@ -32,18 +23,9 @@ class AlgebraEquationSolver {
         };
       }
 
-      // Extract left and right sides of equation
-      const sides = equationString.split("=");
-      if (sides.length !== 2) {
-        return {
-          solved: false,
-          error: "Invalid equation format",
-          details: "Expected exactly one = sign",
-        };
-      }
-
-      const leftSide = sides[0].trim();
-      const rightSide = sides[1].trim();
+      // Extract left and right sides from the parsed equation
+      const leftSide = parsed.leftSide.expression;
+      const rightSide = parsed.rightSide.expression;
 
       // Verify we have exactly one variable
       if (parsed.variables.length !== 1) {
@@ -56,9 +38,10 @@ class AlgebraEquationSolver {
 
       const variable = parsed.variables[0];
 
-      // Use mathjs to solve the equation
+      // Move all terms to the left side
       const solveExpr = `solve(${leftSide} - (${rightSide}), ${variable})`;
 
+      // Solve using mathjs
       const solutions = math.evaluate(solveExpr);
 
       // Generate solution steps
@@ -90,10 +73,6 @@ class AlgebraEquationSolver {
     }
   }
 
-  /**
-   * Generates step-by-step solution for a linear equation
-   * This is a simplified version that will be expanded in the future
-   */
   generateLinearSolutionSteps(leftSide, rightSide, variable, solution) {
     return [
       {
