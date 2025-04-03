@@ -1,5 +1,6 @@
 const parser = require("../math/parser");
 const algebraEquations = require("../math/algebra/equations");
+const quadraticEquations = require("../math/algebra/quadratic");
 const modelManager = require("../llm/model_manager");
 const algebraPrompts = require("../llm/prompts/algebra");
 
@@ -32,27 +33,44 @@ class MathService {
       // 3. Solve with appropriate method based on type
       let solution;
 
-      if (domain === "algebra" && mainExpression.type === "equation") {
-        // Use algebra solver for equations
-        solution = await this.solveAlgebraicEquation(
-          mainExpression.expressionString,
-          options
-        );
-      } else if (
-        domain === "algebra" &&
-        mainExpression.type === "word_problem"
-      ) {
-        // For word problems, use LLM with contextual information
-        solution = await this.solveWithLLM(problemText, {
-          ...options,
-          problemType: "word_problem",
-          domain: "algebra",
-        });
+      if (domain === "algebra") {
+        if (mainExpression.type === "equation") {
+          // Check if it's a quadratic equation by looking for x² terms
+          const hasSquaredTerm = this.checkForQuadraticTerms(mainExpression);
+
+          if (hasSquaredTerm) {
+            // Use quadratic equation solver
+            solution = await this.solveQuadraticEquation(
+              mainExpression,
+              options
+            );
+          } else {
+            // Use linear equation solver
+            solution = await this.solveAlgebraicEquation(
+              mainExpression.expressionString,
+              options
+            );
+          }
+        } else if (mainExpression.type === "word_problem") {
+          // For word problems, use LLM with contextual information
+          solution = await this.solveWithLLM(problemText, {
+            ...options,
+            problemType: "word_problem",
+            domain: "algebra",
+          });
+        } else {
+          // For other types, use LLM with parsed expression context
+          solution = await this.solveWithLLM(problemText, {
+            ...options,
+            parsedExpression: mainExpression,
+          });
+        }
       } else {
-        // For other types, use LLM with parsed expression context
+        // For non-algebra domains (calculus, statistics, etc.), use LLM
         solution = await this.solveWithLLM(problemText, {
           ...options,
           parsedExpression: mainExpression,
+          domain,
         });
       }
 
@@ -80,12 +98,13 @@ class MathService {
   extractExpressions(text) {
     // Better regex to find potential equations and expressions
     const equationRegex =
-      /\$([^$]+)\$|`([^`]+)`|(\b[a-z][a-z0-9]*\s*[\+\-\*\/]\s*\d+\s*\=\s*\d+\b)|((?:\d+)?[a-z](?:\s*[\+\-\*\/]\s*(?:\d+)?[a-z])*\s*(?:[\+\-\*\/]\s*\d+)?\s*\=\s*\d+)/gi;
+      /\$([^$]+)\$|`([^`]+)`|(\b[a-z][a-z0-9]*\s*[\+\-\*\/]\s*\d+\s*\=\s*\d+\b)|((?:\d+)?[a-z](?:\s*[\+\-\*\/]\s*(?:\d+)?[a-z])*\s*(?:[\+\-\*\/]\s*\d+)?\s*\=\s*\d+)|([a-z]\^2|[a-z]²)|(\d*[a-z]\^2\s*[\+\-]\s*\d+[a-z]\s*[\+\-]\s*\d+\s*\=\s*\d+)/gi;
     const matches = [...text.matchAll(equationRegex)];
 
     const expressions = [];
     for (const match of matches) {
-      const expressionText = match[1] || match[2] || match[3] || match[4];
+      const expressionText =
+        match[1] || match[2] || match[3] || match[4] || match[5] || match[6];
       if (expressionText && expressionText.trim()) {
         try {
           const parsed = parser.parseExpression(expressionText.trim());
@@ -102,7 +121,7 @@ class MathService {
     if (expressions.length === 0) {
       // Extract word problems by looking for key phrases
       const wordProblemKeywords =
-        /what is [a-z]|solve for [a-z]|find the value of [a-z]/i;
+        /what is [a-z]|solve for [a-z]|find the value of [a-z]|solve the equation/i;
       if (wordProblemKeywords.test(text)) {
         // This is likely a word problem, try to extract the entire text
         return [
@@ -185,6 +204,41 @@ class MathService {
   }
 
   /**
+   * Checks if an expression contains quadratic terms
+   *
+   * @param {Object} expression - The parsed expression
+   * @returns {boolean} True if the expression contains squared terms
+   */
+  checkForQuadraticTerms(expression) {
+    // Check if the expression string contains a squared term
+    if (
+      expression.expressionString.includes("²") ||
+      expression.expressionString.includes("^2")
+    ) {
+      return true;
+    }
+
+    // For more complex detection, check the parsed structure
+    // This is a simplified approach and might need enhancement
+    if (expression.leftSide && expression.leftSide.node) {
+      let hasSquaredTerm = false;
+
+      expression.leftSide.node.traverse((node) => {
+        if (node.isOperatorNode && node.fn === "pow") {
+          // Check if the exponent is 2
+          if (node.args[1].isConstantNode && node.args[1].value === 2) {
+            hasSquaredTerm = true;
+          }
+        }
+      });
+
+      return hasSquaredTerm;
+    }
+
+    return false;
+  }
+
+  /**
    * Solves an algebraic equation
    *
    * @param {string} equation - The equation as a string
@@ -214,6 +268,87 @@ class MathService {
     }
 
     return solution;
+  }
+
+  /**
+   * Solves a quadratic equation
+   *
+   * @param {Object} expression - The parsed expression
+   * @param {Object} options - Solution options
+   * @returns {Promise<Object>} The solution
+   */
+  async solveQuadraticEquation(expression, options = {}) {
+    // Solve using the quadratic equation solver
+    const solution = quadraticEquations.solveQuadraticEquation(expression);
+
+    // If direct solving failed, fall back to LLM
+    if (!solution.solved) {
+      return this.solveWithLLM(expression.expressionString, {
+        ...options,
+        detailLevel: "detailed",
+      });
+    }
+
+    // If we have a valid solution but want enhanced explanations, use the LLM
+    if (solution.solved && options.enhanceExplanation) {
+      const enhancedSteps = await this.enhanceQuadraticExplanation(
+        expression.expressionString,
+        solution,
+        options
+      );
+      solution.steps = enhancedSteps;
+    }
+
+    return solution;
+  }
+
+  /**
+   * Uses the LLM to enhance quadratic explanations
+   *
+   * @param {string} equation - The quadratic equation
+   * @param {Object} solution - The solution object
+   * @param {Object} options - Enhancement options
+   * @returns {Promise<Array>} Enhanced solution steps
+   */
+  async enhanceQuadraticExplanation(equation, solution, options = {}) {
+    const prompt = `You are a helpful math assistant that explains quadratic equations.
+Please provide a step-by-step solution for the following quadratic equation:
+${equation}
+
+This is a quadratic equation with coefficients:
+a = ${solution.coefficients.a}
+b = ${solution.coefficients.b}
+c = ${solution.coefficients.c}
+
+The discriminant is ${solution.discriminant}, which means there are ${
+      solution.solutionType === "two_real"
+        ? "two real solutions"
+        : solution.solutionType === "one_real"
+        ? "one repeated real solution"
+        : "two complex solutions"
+    }.
+
+Please give a very detailed explanation for each step.
+
+Format your answer as follows:
+Step 1: [First step description]
+[Mathematical expression]
+
+Step 2: [Second step description]
+[Mathematical expression]
+
+...
+
+Final Answer: [The solution]`;
+
+    const llmResponse = await modelManager.generateText(prompt, {
+      temperature: 0.3,
+      max_new_tokens: 512,
+    });
+
+    // Parse the LLM response to extract steps
+    const steps = this.parseStepsFromLLMResponse(llmResponse);
+    return steps.length > 0 ? steps : solution.steps;
   }
 
   /**
@@ -330,8 +465,20 @@ class MathService {
     // We'll implement this more fully in a future step
 
     if (domain === "algebra" && expression.type === "equation") {
+      // Check if it's a quadratic equation
+      if (solution.coefficients && solution.coefficients.a) {
+        return {
+          type: "quadratic",
+          data: {
+            coefficients: solution.coefficients,
+            solutions: solution.solutions,
+          },
+        };
+      }
+
+      // Linear equation
       return {
-        type: "equation",
+        type: "linear",
         data: {
           equation: expression.expressionString,
           solution: solution.result,

@@ -1,5 +1,6 @@
 import React from "react";
 import { MathJax } from "better-react-mathjax";
+import QuadraticPlot from "../visualization/QuadraticPlot";
 
 function SolutionDisplay({ solution }) {
   if (!solution) {
@@ -31,6 +32,13 @@ function SolutionDisplay({ solution }) {
         </div>
       </div>
 
+      {solution.domain && (
+        <div className="mb-4">
+          <p className="font-medium">Mathematical Domain:</p>
+          <p className="p-2 bg-gray-50 rounded capitalize">{solution.domain}</p>
+        </div>
+      )}
+
       {solution.steps && solution.steps.length > 0 && (
         <div className="mb-4">
           <p className="font-medium mb-2">Steps:</p>
@@ -38,7 +46,7 @@ function SolutionDisplay({ solution }) {
             {solution.steps.map((step, index) => (
               <div key={index} className="p-3 bg-blue-50 rounded">
                 <p className="font-medium text-blue-800">
-                  Step {index + 1}: {step.explanation}
+                  Step {step.step || index + 1}: {step.explanation}
                 </p>
                 <div className="mt-1">
                   <MathJax>{`\\(${step.expression}\\)`}</MathJax>
@@ -57,6 +65,13 @@ function SolutionDisplay({ solution }) {
           }\\)`}</MathJax>
         </div>
       </div>
+
+      {solution.coefficients && solution.coefficients.a && (
+        <QuadraticPlot
+          coefficients={solution.coefficients}
+          solutions={solution.solutions}
+        />
+      )}
     </div>
   );
 }

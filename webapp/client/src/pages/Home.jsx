@@ -32,27 +32,80 @@ function Home() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white rounded-lg shadow-md p-5">
-            <h3 className="text-xl font-semibold mb-3">Algebraic Equations</h3>
+            <h3 className="text-xl font-semibold mb-3">Linear Equations</h3>
             <p>
-              Solve linear and quadratic equations with detailed explanations of
-              each step.
+              Solve linear equations like 2x + 3 = 7 with step-by-step
+              explanations.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-5">
+            <h3 className="text-xl font-semibold mb-3">Quadratic Equations</h3>
+            <p>
+              Solve quadratic equations with real or complex roots, complete
+              with interactive visualizations.
             </p>
           </div>
 
           <div className="bg-white rounded-lg shadow-md p-5">
             <h3 className="text-xl font-semibold mb-3">Visual Learning</h3>
             <p>
-              Visualize mathematical concepts with interactive graphs and
-              diagrams.
+              See functions graphed in real-time with important points
+              highlighted for better understanding.
             </p>
           </div>
+        </div>
 
-          <div className="bg-white rounded-lg shadow-md p-5">
-            <h3 className="text-xl font-semibold mb-3">Natural Language</h3>
-            <p>
-              Ask questions in plain English and get mathematical solutions in
-              response.
-            </p>
+        <div className="mt-10 bg-blue-50 rounded-lg p-6">
+          <h2 className="text-2xl font-semibold mb-4 text-blue-800">
+            How It Works
+          </h2>
+
+          <div className="space-y-4">
+            <div className="flex items-start">
+              <div className="flex-shrink-0 bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center mr-3 mt-1">
+                1
+              </div>
+              <div>
+                <h3 className="text-lg font-medium">
+                  Enter your mathematical problem
+                </h3>
+                <p className="text-gray-600">
+                  Type in any linear or quadratic equation, or even a word
+                  problem.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start">
+              <div className="flex-shrink-0 bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center mr-3 mt-1">
+                2
+              </div>
+              <div>
+                <h3 className="text-lg font-medium">
+                  Our system analyzes the problem
+                </h3>
+                <p className="text-gray-600">
+                  We use advanced algorithms and AI to understand and solve your
+                  problem.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start">
+              <div className="flex-shrink-0 bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center mr-3 mt-1">
+                3
+              </div>
+              <div>
+                <h3 className="text-lg font-medium">
+                  Get a complete explanation
+                </h3>
+                <p className="text-gray-600">
+                  Receive a detailed step-by-step solution with interactive
+                  visualizations.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

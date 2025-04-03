@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import MathProblemInput from "../components/math/MathProblemInput";
 import SolutionDisplay from "../components/math/SolutionDisplay";
 import FunctionPlot from "../components/visualization/FunctionPlot";
+import QuadraticPlot from "../components/visualization/QuadraticPlot";
 import { solveMathProblem } from "../services/mathService";
 
 function ProblemSolver() {
@@ -46,7 +47,7 @@ function ProblemSolver() {
 
       {solution && <SolutionDisplay solution={solution} />}
 
-      {showVisualization && (
+      {showVisualization && !solution.coefficients && (
         <FunctionPlot
           equation={solution.equation}
           variable={solution.variable}

@@ -39,7 +39,41 @@ function MathProblemInput({ onSolve, isLoading }) {
           {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
         </div>
 
-        <div className="flex justify-end">
+        <div className="mt-2">
+          <div className="text-sm text-gray-600 font-medium">Examples:</div>
+          <div className="mt-1 flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="px-2 py-1 text-xs bg-gray-100 rounded hover:bg-gray-200"
+              onClick={() => setProblem("2x + 3 = 7")}
+            >
+              Linear equation
+            </button>
+            <button
+              type="button"
+              className="px-2 py-1 text-xs bg-gray-100 rounded hover:bg-gray-200"
+              onClick={() => setProblem("x² + 5x + 6 = 0")}
+            >
+              Quadratic with real roots
+            </button>
+            <button
+              type="button"
+              className="px-2 py-1 text-xs bg-gray-100 rounded hover:bg-gray-200"
+              onClick={() => setProblem("x² + 1 = 0")}
+            >
+              Quadratic with complex roots
+            </button>
+            <button
+              type="button"
+              className="px-2 py-1 text-xs bg-gray-100 rounded hover:bg-gray-200"
+              onClick={() => setProblem("Solve for x: 2x² - 12x + 18 = 0")}
+            >
+              Word problem
+            </button>
+          </div>
+        </div>
+
+        <div className="flex justify-end mt-4">
           <button
             type="submit"
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
